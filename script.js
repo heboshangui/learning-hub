@@ -423,6 +423,72 @@ const categoryMeta = {
   general: { label: '🚀 综合资源', color: '#d29922' },
 };
 
+// ===== Favorites (localStorage) =====
+const FAVORITES_KEY = 'learning-hub-favorites';
+
+function getFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveFavorites(favs) {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
+}
+
+function isFavorited(url) {
+  return getFavorites().includes(url);
+}
+
+function toggleFavorite(url, e) {
+  e.preventDefault();
+  e.stopPropagation();
+  let favs = getFavorites();
+  if (favs.includes(url)) {
+    favs = favs.filter(f => f !== url);
+  } else {
+    favs.push(url);
+  }
+  saveFavorites(favs);
+  // Re-render current view
+  renderResources(currentCat, currentSearch, activeTags);
+};
+
+// ===== Tag Filtering =====
+let activeTags = new Set();
+let currentCat = 'all';
+let currentSearch = '';
+
+// Collect all unique tags preserving order of first appearance
+function getAllTags() {
+  const seen = new Set();
+  const tags = [];
+  resources.forEach(r => r.tags.forEach(t => {
+    if (!seen.has(t)) { seen.add(t); tags.push(t); }
+  }));
+  return tags;
+}
+
+function getTagColor(tag) {
+  // Pick a stable color per tag using a simple hash
+  const colors = ['#58a6ff','#bc8cff','#f778ba','#3fb950','#f0883e','#d29922','#39d353','#ff7b72','#79c0ff','#d2a8ff'];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function renderTagFilterBar() {
+  const bar = document.getElementById('tagFilterBar');
+  const tags = getAllTags();
+  bar.innerHTML = tags.map(tag => {
+    const color = getTagColor(tag);
+    const isActive = activeTags.has(tag);
+    return `<button class="tag-filter-btn${isActive ? ' active' : ''}" data-tag="${tag}" style="--tag-color:${color}">${tag}</button>`;
+  }).join('');
+}
+
 // ===== Render Functions =====
 function getFaviconUrl(url, favicon) {
   if (favicon) return favicon;
@@ -437,67 +503,118 @@ function getFaviconUrl(url, favicon) {
 function createCard(item) {
   const catMeta = categoryMeta[item.category] || { label: item.category, color: '#8b949e' };
   const faviconUrl = getFaviconUrl(item.url, item.favicon);
+  const favorited = isFavorited(item.url);
+  const starClass = favorited ? 'star-btn favorited' : 'star-btn';
+  const starTitle = favorited ? '取消收藏' : '收藏';
+
   const tagsHtml = item.tags.map(tag => {
-    const tagClass = `tag tag-${item.category}`;
-    return `<span class="${tagClass}">${tag}</span>`;
+    const color = getTagColor(tag);
+    const isActive = activeTags.has(tag);
+    return `<span class="tag" style="background:${isActive ? color + '33' : color + '22'};color:${color};${isActive ? ';box-shadow:0 0 0 1px '+color:''}">${tag}</span>`;
   }).join('');
 
   return `
-    <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="resource-card" data-category="${item.category}">
-      <div class="card-header">
-        <span class="card-title">${item.name}</span>
-        <img src="${faviconUrl}" alt="favicon" class="card-favicon" onerror="this.style.display='none'">
-      </div>
-      <p class="card-desc">${item.desc}</p>
-      <div class="card-tags">
-        ${tagsHtml}
-      </div>
-    </a>
+    <div class="resource-card" data-category="${item.category}">
+      <button class="${starClass}" data-url="${item.url}" title="${starTitle}" aria-label="${starTitle}">★</button>
+      <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="card-link">
+        <div class="card-header">
+          <span class="card-title">${item.name}</span>
+          <img src="${faviconUrl}" alt="favicon" class="card-favicon" onerror="this.style.display='none'">
+        </div>
+        <p class="card-desc">${item.desc}</p>
+        <div class="card-tags">${tagsHtml}</div>
+      </a>
+    </div>
   `;
 }
 
-function renderResources(filterCategory = 'all', searchTerm = '') {
+function renderResources(cat, search = '', tags = activeTags) {
   const grid = document.getElementById('resourceGrid');
   const noResults = document.getElementById('noResults');
 
-  const filtered = resources.filter(r => {
-    const matchCat = filterCategory === 'all' || r.category === filterCategory;
-    const term = searchTerm.toLowerCase();
-    const matchSearch = !term ||
+  let filtered = resources;
+
+  // Category filter
+  if (cat === 'favorites') {
+    const favUrls = getFavorites();
+    filtered = resources.filter(r => favUrls.includes(r.url));
+  } else if (cat !== 'all') {
+    filtered = filtered.filter(r => r.category === cat);
+  }
+
+  // Tag filter (AND logic)
+  if (tags.size > 0) {
+    filtered = filtered.filter(r =>
+      [...tags].every(tag => r.tags.includes(tag))
+    );
+  }
+
+  // Search filter
+  if (search) {
+    const term = search.toLowerCase();
+    filtered = filtered.filter(r =>
       r.name.toLowerCase().includes(term) ||
       r.desc.toLowerCase().includes(term) ||
-      r.tags.some(t => t.toLowerCase().includes(term));
-    return matchCat && matchSearch;
-  });
+      r.tags.some(t => t.toLowerCase().includes(term))
+    );
+  }
 
   if (filtered.length === 0) {
     grid.innerHTML = '';
     noResults.classList.remove('hidden');
+    noResults.querySelector('p').textContent =
+      cat === 'favorites' && getFavorites().length === 0
+        ? '还没有收藏任何资源，快去探索吧 ⭐'
+        : '没有找到匹配的资源，试试其他关键词 🔍';
     return;
   }
 
   noResults.classList.add('hidden');
   grid.innerHTML = filtered.map(createCard).join('');
+
+  // Attach star button listeners
+  grid.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      toggleFavorite(btn.dataset.url, e);
+    });
+  });
 }
 
 // ===== Event Listeners =====
-const catBtns = document.querySelectorAll('.cat-btn');
-let currentCat = 'all';
 
+// Category tabs
+const catBtns = document.querySelectorAll('.cat-btn');
 catBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     currentCat = btn.dataset.category;
     catBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const term = document.getElementById('searchInput').value;
-    renderResources(currentCat, term);
+    renderResources(currentCat, currentSearch, activeTags);
   });
 });
 
+// Tag filter bar clicks (delegation)
+document.getElementById('tagFilterBar').addEventListener('click', e => {
+  const tagBtn = e.target.closest('.tag-filter-btn');
+  if (!tagBtn) return;
+  const tag = tagBtn.dataset.tag;
+  if (activeTags.has(tag)) {
+    activeTags.delete(tag);
+  } else {
+    activeTags.add(tag);
+  }
+  // Re-render tag bar to update active states
+  renderTagFilterBar();
+  renderResources(currentCat, currentSearch, activeTags);
+});
+
+// Search
 const searchInput = document.getElementById('searchInput');
-searchInput.addEventListener('input', (e) => {
-  renderResources(currentCat, e.target.value);
+searchInput.addEventListener('input', e => {
+  currentSearch = e.target.value;
+  renderResources(currentCat, currentSearch, activeTags);
 });
 
 // ===== Init =====
-renderResources();
+renderTagFilterBar();
+renderResources(currentCat, currentSearch, activeTags);
