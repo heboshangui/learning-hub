@@ -134,6 +134,43 @@ body {
   pointer-events: none;
 }
 
+/* ===== Tag Filter Bar ===== */
+.tag-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 24px;
+  padding: 16px 0 0;
+}
+
+.tag-filter-btn {
+  padding: 5px 14px;
+  border-radius: 50px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  --tag-color: var(--accent-blue);
+}
+
+.tag-filter-btn:hover {
+  border-color: var(--tag-color);
+  color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 10%, transparent);
+}
+
+.tag-filter-btn.active {
+  background: color-mix(in srgb, var(--tag-color) 20%, transparent);
+  border-color: var(--tag-color);
+  color: var(--tag-color);
+  box-shadow: 0 0 0 1px var(--tag-color);
+}
+
 /* ===== Category Nav ===== */
 .category-nav {
   display: flex;
@@ -166,6 +203,23 @@ body {
   color: #fff;
 }
 
+.cat-btn-fav {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+}
+
+.cat-btn-fav:hover {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.1);
+}
+
+.cat-btn-fav.active {
+  background: var(--accent-yellow);
+  border-color: var(--accent-yellow);
+  color: #fff;
+}
+
 /* ===== Resource Grid ===== */
 .resource-grid {
   display: grid;
@@ -179,13 +233,10 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  padding: 24px;
   transition: var(--transition);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  text-decoration: none;
-  color: inherit;
+  position: relative;
 }
 
 .resource-card:hover {
@@ -193,6 +244,56 @@ body {
   border-color: var(--accent-blue);
   transform: translateY(-3px);
   box-shadow: var(--shadow);
+}
+
+/* Star (Favorite) Button */
+.star-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.star-btn:hover {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.1);
+  transform: scale(1.1);
+}
+
+.star-btn.favorited {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.15);
+}
+
+.star-btn.favorited:hover {
+  background: rgba(210, 153, 34, 0.25);
+}
+
+/* Card link covers the whole card except star button */
+.card-link {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  padding-right: 48px;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
 }
 
 .card-header {
@@ -234,14 +335,8 @@ body {
   border-radius: 50px;
   font-size: 0.75rem;
   font-weight: 500;
+  transition: var(--transition);
 }
-
-.tag-programming { background: rgba(88, 166, 255, 0.15); color: var(--accent-blue); }
-.tag-ai { background: rgba(188, 140, 255, 0.15); color: var(--accent-purple); }
-.tag-design { background: rgba(247, 120, 186, 0.15); color: var(--accent-pink); }
-.tag-finance { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
-.tag-language { background: rgba(240, 136, 62, 0.15); color: var(--accent-orange); }
-.tag-general { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
 
 /* ===== Category Badge ===== */
 .cat-badge {
