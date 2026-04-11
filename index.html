@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习资源导航站 | Learning Hub</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-icon">📚</span>
+        <span class="logo-text">Learning Hub</span>
+      </div>
+      <nav class="header-nav">
+        <a href="https://github.com/heboshangui" target="_blank" class="nav-link">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1 class="hero-title">学习资源导航站</h1>
+      <p class="hero-subtitle">发现优质学习资源，涵盖编程开发、AI机器学习、设计产品、金融投资、语言学习等领域</p>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索资源..." autocomplete="off">
+        <span class="search-icon">🔍</span>
+      </div>
+    </section>
+
+    <section class="category-nav">
+      <button class="cat-btn active" data-category="all">全部</button>
+      <button class="cat-btn" data-category="programming">💻 编程开发</button>
+      <button class="cat-btn" data-category="ai">🤖 AI/ML</button>
+      <button class="cat-btn" data-category="design">🎨 设计产品</button>
+      <button class="cat-btn" data-category="finance">💰 金融投资</button>
+      <button class="cat-btn" data-category="language">🌏 语言学习</button>
+      <button class="cat-btn" data-category="general">🚀 综合资源</button>
+    </section>
+
+    <section id="resourceGrid" class="resource-grid"></section>
+
+    <section id="noResults" class="no-results hidden">
+      <p>没有找到匹配的资源，试试其他关键词 🔍</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Built with ❤️ by <a href="https://github.com/heboshangui" target="_blank">@heboshangui</a> · 使用 GitHub Pages / Vercel 托管</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
