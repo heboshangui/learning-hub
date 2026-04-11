@@ -416,52 +416,89 @@ const resources = [
 // ===== Category Info =====
 const categoryMeta = {
   programming: { label: '💻 编程开发', color: '#58a6ff' },
-  ai: { label: '🤖 AI/ML', color: '#bc8cff' },
-  design: { label: '🎨 设计产品', color: '#f778ba' },
-  finance: { label: '💰 金融投资', color: '#3fb950' },
-  language: { label: '🌏 语言学习', color: '#f0883e' },
-  general: { label: '🚀 综合资源', color: '#d29922' },
+  ai:          { label: '🤖 AI/ML',    color: '#bc8cff' },
+  design:      { label: '🎨 设计产品',  color: '#f778ba' },
+  finance:     { label: '💰 金融投资',  color: '#3fb950' },
+  language:    { label: '🌏 语言学习',  color: '#f0883e' },
+  general:     { label: '🚀 综合资源',  color: '#d29922' },
 };
 
-// ===== Favorites (localStorage) =====
-const FAVORITES_KEY = 'learning-hub-favorites';
+// ===== localStorage Keys =====
+const PROGRESS_KEY = 'learning-hub-progress';
+const NOTES_KEY    = 'learning-hub-notes';
 
-function getFavorites() {
-  try {
-    return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
-  } catch {
-    return [];
-  }
+// ===== Progress State =====
+function getProgressMap() {
+  try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); }
+  catch { return {}; }
 }
 
-function saveFavorites(favs) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
+function saveProgressMap(map) {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(map));
 }
 
-function isFavorited(url) {
-  return getFavorites().includes(url);
+function getResourceProgress(url) {
+  return getProgressMap()[url] || 'pending';
 }
 
-function toggleFavorite(url, e) {
-  e.preventDefault();
-  e.stopPropagation();
-  let favs = getFavorites();
-  if (favs.includes(url)) {
-    favs = favs.filter(f => f !== url);
-  } else {
-    favs.push(url);
-  }
-  saveFavorites(favs);
-  // Re-render current view
-  renderResources(currentCat, currentSearch, activeTags);
-};
+function setResourceProgress(url, status) {
+  const map = getProgressMap();
+  map[url] = status;
+  saveProgressMap(map);
+}
 
-// ===== Tag Filtering =====
+function cycleProgress(url) {
+  const current = getResourceProgress(url);
+  const order = ['pending', 'learning', 'completed'];
+  const next = order[(order.indexOf(current) + 1) % order.length];
+  setResourceProgress(url, next);
+  return next;
+}
+
+// ===== Notes State =====
+function getNotesMap() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveNotesMap(map) {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(map));
+}
+
+function getResourceNote(url) {
+  return getNotesMap()[url] || null;
+}
+
+function saveResourceNote(url, note) {
+  const map = getNotesMap();
+  map[url] = { note, updatedAt: Date.now() };
+  saveNotesMap(map);
+}
+
+function hasNote(url) {
+  const note = getResourceNote(url);
+  return note && note.note && note.note.trim().length > 0;
+}
+
+// ===== Stats =====
+function getStats() {
+  const map = getProgressMap();
+  const total = resources.length;
+  let completed = 0, learning = 0;
+  resources.forEach(r => {
+    const s = map[r.url] || 'pending';
+    if (s === 'completed') completed++;
+    else if (s === 'learning') learning++;
+  });
+  return { total, completed, learning };
+}
+
+// ===== Tag Utils =====
 let activeTags = new Set();
 let currentCat = 'all';
+let currentStatus = 'all';
 let currentSearch = '';
 
-// Collect all unique tags preserving order of first appearance
 function getAllTags() {
   const seen = new Set();
   const tags = [];
@@ -472,13 +509,26 @@ function getAllTags() {
 }
 
 function getTagColor(tag) {
-  // Pick a stable color per tag using a simple hash
   const colors = ['#58a6ff','#bc8cff','#f778ba','#3fb950','#f0883e','#d29922','#39d353','#ff7b72','#79c0ff','#d2a8ff'];
   let hash = 0;
   for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 }
 
+// ===== Render Stats Bar =====
+function renderStatsBar() {
+  const stats = getStats();
+  document.getElementById('statsBar').innerHTML =
+    `<span class="stats-total">📚 共 <strong>${stats.total}</strong> 个资源</span>
+     <span class="stats-divider">|</span>
+     <span class="stats-completed">✅ 已学 <strong>${stats.completed}</strong> 个</span>
+     <span class="stats-divider">|</span>
+     <span class="stats-learning">🔄 在学 <strong>${stats.learning}</strong> 个</span>
+     <span class="stats-divider">|</span>
+     <span class="stats-pending">⭕ 未学 <strong>${stats.total - stats.completed - stats.learning}</strong> 个</span>`;
+}
+
+// ===== Render Tag Filter Bar =====
 function renderTagFilterBar() {
   const bar = document.getElementById('tagFilterBar');
   const tags = getAllTags();
@@ -489,7 +539,7 @@ function renderTagFilterBar() {
   }).join('');
 }
 
-// ===== Render Functions =====
+// ===== Favicon =====
 function getFaviconUrl(url, favicon) {
   if (favicon) return favicon;
   try {
@@ -500,22 +550,40 @@ function getFaviconUrl(url, favicon) {
   }
 }
 
+// ===== Status Badge HTML =====
+const STATUS_CONFIG = {
+  pending:   { label: '⭕ 未学',   cls: 'status-pending'   },
+  learning:  { label: '🔄 在学',   cls: 'status-learning'  },
+  completed: { label: '✅ 已学',   cls: 'status-completed' },
+};
+
+function getStatusHtml(url) {
+  const status = getResourceProgress(url);
+  const cfg = STATUS_CONFIG[status];
+  return `<span class="status-badge ${cfg.cls}" data-url="${url}">${cfg.label}</span>`;
+}
+
+// ===== Create Card =====
 function createCard(item) {
-  const catMeta = categoryMeta[item.category] || { label: item.category, color: '#8b949e' };
+  const catMeta  = categoryMeta[item.category] || { label: item.category, color: '#8b949e' };
   const faviconUrl = getFaviconUrl(item.url, item.favicon);
-  const favorited = isFavorited(item.url);
-  const starClass = favorited ? 'star-btn favorited' : 'star-btn';
-  const starTitle = favorited ? '取消收藏' : '收藏';
+  const status     = getResourceProgress(item.url);
+  const noteExists = hasNote(item.url);
 
   const tagsHtml = item.tags.map(tag => {
-    const color = getTagColor(tag);
+    const color   = getTagColor(tag);
     const isActive = activeTags.has(tag);
     return `<span class="tag" style="background:${isActive ? color + '33' : color + '22'};color:${color};${isActive ? ';box-shadow:0 0 0 1px '+color:''}">${tag}</span>`;
   }).join('');
 
   return `
-    <div class="resource-card" data-category="${item.category}">
-      <button class="${starClass}" data-url="${item.url}" title="${starTitle}" aria-label="${starTitle}">★</button>
+    <div class="resource-card" data-category="${item.category}" data-url="${item.url}">
+      <div class="card-actions">
+        <button class="status-badge-btn ${STATUS_CONFIG[status].cls}" data-url="${item.url}" title="切换学习状态">
+          ${STATUS_CONFIG[status].label}
+        </button>
+        ${noteExists ? '<span class="note-indicator" title="有笔记">📝</span>' : ''}
+      </div>
       <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="card-link">
         <div class="card-header">
           <span class="card-title">${item.name}</span>
@@ -524,34 +592,38 @@ function createCard(item) {
         <p class="card-desc">${item.desc}</p>
         <div class="card-tags">${tagsHtml}</div>
       </a>
+      <button class="note-btn" data-url="${item.url}" data-name="${item.name}" title="记笔记">📝</button>
     </div>
   `;
 }
 
-function renderResources(cat, search = '', tags = activeTags) {
-  const grid = document.getElementById('resourceGrid');
+// ===== Render Resources =====
+function renderResources() {
+  const grid      = document.getElementById('resourceGrid');
   const noResults = document.getElementById('noResults');
 
   let filtered = resources;
 
   // Category filter
-  if (cat === 'favorites') {
-    const favUrls = getFavorites();
-    filtered = resources.filter(r => favUrls.includes(r.url));
-  } else if (cat !== 'all') {
-    filtered = filtered.filter(r => r.category === cat);
+  if (currentCat !== 'all') {
+    filtered = filtered.filter(r => r.category === currentCat);
+  }
+
+  // Status filter
+  if (currentStatus !== 'all') {
+    filtered = filtered.filter(r => getResourceProgress(r.url) === currentStatus);
   }
 
   // Tag filter (AND logic)
-  if (tags.size > 0) {
+  if (activeTags.size > 0) {
     filtered = filtered.filter(r =>
-      [...tags].every(tag => r.tags.includes(tag))
+      [...activeTags].every(tag => r.tags.includes(tag))
     );
   }
 
   // Search filter
-  if (search) {
-    const term = search.toLowerCase();
+  if (currentSearch) {
+    const term = currentSearch.toLowerCase();
     filtered = filtered.filter(r =>
       r.name.toLowerCase().includes(term) ||
       r.desc.toLowerCase().includes(term) ||
@@ -562,34 +634,98 @@ function renderResources(cat, search = '', tags = activeTags) {
   if (filtered.length === 0) {
     grid.innerHTML = '';
     noResults.classList.remove('hidden');
-    noResults.querySelector('p').textContent =
-      cat === 'favorites' && getFavorites().length === 0
-        ? '还没有收藏任何资源，快去探索吧 ⭐'
-        : '没有找到匹配的资源，试试其他关键词 🔍';
+    noResults.querySelector('p').textContent = '没有找到匹配的资源，试试其他关键词 🔍';
     return;
   }
 
   noResults.classList.add('hidden');
   grid.innerHTML = filtered.map(createCard).join('');
 
-  // Attach star button listeners
-  grid.querySelectorAll('.star-btn').forEach(btn => {
+  // Attach listeners
+  grid.querySelectorAll('.status-badge-btn').forEach(btn => {
     btn.addEventListener('click', e => {
-      toggleFavorite(btn.dataset.url, e);
+      e.preventDefault();
+      e.stopPropagation();
+      cycleProgress(btn.dataset.url);
+      renderStatsBar();
+      renderResources();
+    });
+  });
+
+  grid.querySelectorAll('.note-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      openNoteModal(btn.dataset.url, btn.dataset.name);
     });
   });
 }
 
+// ===== Note Modal =====
+let currentNoteUrl = null;
+
+function openNoteModal(url, name) {
+  currentNoteUrl = url;
+  const note = getResourceNote(url);
+  document.getElementById('noteModalResource').textContent = name;
+  document.getElementById('noteTextarea').value = note ? (note.note || '') : '';
+  document.getElementById('noteModal').classList.remove('hidden');
+  document.getElementById('noteTextarea').focus();
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.add('hidden');
+  currentNoteUrl = null;
+}
+
+function saveNote() {
+  if (!currentNoteUrl) return;
+  const text = document.getElementById('noteTextarea').value.trim();
+  if (text) {
+    saveResourceNote(currentNoteUrl, text);
+  } else {
+    // Remove empty note entry
+    const map = getNotesMap();
+    delete map[currentNoteUrl];
+    saveNotesMap(map);
+  }
+  closeNoteModal();
+  renderResources();
+}
+
+document.getElementById('noteModalClose').addEventListener('click', closeNoteModal);
+document.getElementById('noteModalCancel').addEventListener('click', closeNoteModal);
+document.getElementById('noteModalSave').addEventListener('click', saveNote);
+
+// Close modal on overlay click
+document.getElementById('noteModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('noteModal')) closeNoteModal();
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeNoteModal();
+});
+
 // ===== Event Listeners =====
 
 // Category tabs
-const catBtns = document.querySelectorAll('.cat-btn');
-catBtns.forEach(btn => {
+document.querySelectorAll('.cat-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     currentCat = btn.dataset.category;
-    catBtns.forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderResources(currentCat, currentSearch, activeTags);
+    renderResources();
+  });
+});
+
+// Status filter tabs
+document.querySelectorAll('.status-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentStatus = btn.dataset.status;
+    document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderResources();
   });
 });
 
@@ -598,23 +734,19 @@ document.getElementById('tagFilterBar').addEventListener('click', e => {
   const tagBtn = e.target.closest('.tag-filter-btn');
   if (!tagBtn) return;
   const tag = tagBtn.dataset.tag;
-  if (activeTags.has(tag)) {
-    activeTags.delete(tag);
-  } else {
-    activeTags.add(tag);
-  }
-  // Re-render tag bar to update active states
+  if (activeTags.has(tag)) activeTags.delete(tag);
+  else activeTags.add(tag);
   renderTagFilterBar();
-  renderResources(currentCat, currentSearch, activeTags);
+  renderResources();
 });
 
 // Search
-const searchInput = document.getElementById('searchInput');
-searchInput.addEventListener('input', e => {
+document.getElementById('searchInput').addEventListener('input', e => {
   currentSearch = e.target.value;
-  renderResources(currentCat, currentSearch, activeTags);
+  renderResources();
 });
 
 // ===== Init =====
+renderStatsBar();
 renderTagFilterBar();
-renderResources(currentCat, currentSearch, activeTags);
+renderResources();
