@@ -82,6 +82,15 @@ const resources = [
     favicon: 'https://css-tricks.com/favicon.ico',
   },
 
+  {
+    category: 'programming',
+    name: 'agent-qa 测试工作流',
+    desc: 'agent-qa 官方指南：通过 MCP 验证网页与移动端改动、检查证据；工具提供 memidex 持久记忆与经验证的自我改进。',
+    url: 'https://vostride.com/docs/agent-qa/guides/coding-agent-workflow',
+    tags: ['AI 测试', 'MCP', '持久记忆', '自我改进'],
+    favicon: 'https://vostride.com/icon.png',
+  },
+
   // ========== AI / 机器学习 ==========
   {
     category: 'ai',
